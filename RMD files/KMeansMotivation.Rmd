@@ -1,0 +1,123 @@
+---
+title: "K-Means Clustering: Student Motivation"
+author: "Kim Pham"
+date: "10/27/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 0. Load libraries
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+## 1. Upload data file
+
+Data file description: This file contains the self-reported motivation scores for a class over five weeks. We are going to look for patterns in motivation over this time and sort people into clusters based on those patterns.
+
+```{r}
+df <- read.csv("Data/Class_Motivation.csv")
+```
+
+## 2. Process and structure data for kmeans
+
+```{r}
+df <- dplyr::select(df, 2:6) # remove id
+```
+
+On Missing Values:
+
+* If you treat missing values as having meaning, this likely means we will include them in any analysis we do on our dataset This is troublesome because those missing values are treated as having meaning though that meaning may not be appropriately defined or categorized.
+
+* If we remove missing values, we exclude this data from our analysis. This is troublesome because could have been signficant in our analysis and conclusions
+
+* We will remove people with missing values for this assignment, but keep in mind the issues that we have identified.
+
+```{r}
+df2 <- na.omit(df) # create data frame with rows that do not have missing values
+df2 <- scale(df2) # scale variables
+```
+
+## 3. Run K-means with 2 clusters
+
+K-means clustering algorithm:
+1) The algorithm starts by randomly choosing some starting values 
+2) Associates all observations near to those values with them
+3) Calculates the mean of those clusters of values
+4) Selects the observation closest to the mean of the cluster
+5) Re-associates all observations closest to this observation
+6) Continues this process until the clusters are no longer changing
+
+
+```{r}
+fit <- kmeans(df2, 2) # 2 clusters
+df3 <- data.frame(df2, fit$cluster) # add fitted values to dataframe
+names(df3) <- c("1", "2", "3", "4", "5", "cluster") # rename column names
+head(df3)
+```
+
+## 4. Visualize average motivation by cluster, by week
+
+### Prepare Data
+```{r}
+df4 <- tidyr::gather(df3, "week", "motivation", 1:5)
+df4 <- df4 %>% group_by(week, cluster) %>% summarise(avg = mean(motivation))
+df4$week <- as.numeric(df4$week)
+df4$cluster <- as.factor(df4$cluster)
+```
+
+### Plot weeks (x-axis) and motivation (y-axis)
+```{r}
+ggplot(df4, aes(week, avg, colour = cluster)) + geom_point() + xlab("Week") + ylab("Average Motivation")
+```
+
+## 5. Analysis: 
+
+### What patterns do we see in the clusters?
+
+Each cluster line has opposite changing slopes at weeks 2 and 3. For example, cluster 1 starts high, decreases, increases, than drastically decreases by week 5, while cluster 2 starts low, increases, decreases, and substantially increases by week 5.
+
+Cluster 2 has lower averages of motivation per week, whereas cluster 1 has higher averages of motivation per week.
+
+### How many people are in each cluster? 
+
+```{r}
+dplyr::count(df3, cluster)
+```
+
+## 6. Run K-means with 3 Clusters (same steps as 3-5)
+
+```{r}
+fit2 <- kmeans(df2, 3) 
+fit2$cluster
+df5 <- data.frame(df2, fit2$cluster)
+names(df5) <- c("1", "2", "3", "4", "5", "cluster")
+head(df5)
+```
+
+```{r}
+df6 <- tidyr::gather(df5, "week", "motivation", 1:5)
+df6 <- df6 %>% group_by(week, cluster) %>% summarise(avg = mean(motivation))
+df6$week <- as.numeric(df6$week)
+df6$cluster <- as.factor(df6$cluster)
+```
+
+```{r}
+ggplot(df6, aes(week, avg, colour = cluster)) + geom_point() + xlab("Week") + ylab("Average Motivation")
+```
+
+In looking at the motivation over time, students in cluster 1 start with high motivation and ends with a lower motivation than started. Students in cluster 2 tend to hover around a 0 mean motivation per week on the scaled data. Students in cluster 3 tend to alternative between low and high motivation, and they never have the highest motivation in the class but tend to have the lowest motivation in the class. 
+
+```{r}
+dplyr::count(df5, cluster)
+```
+
+Source:
+[K-means clustering](https://www.cs.uic.edu/~wilkinson/Applets/cluster.html)

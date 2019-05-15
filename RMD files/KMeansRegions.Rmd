@@ -1,0 +1,115 @@
+---
+title: "K-Means Clustering: Home Regions"
+author: "Kim Pham"
+date: "10/27/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 0. Load libraries
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+## 1. Upload data file
+
+Data file description: This file contains survey answers to the questions and regions where people grew up. 
+
+Code Book:
+
+Duration (in seconds)
+Q1 - First Name  
+Q2 - Last Name  
+Q3 - Have you ever owned a cat?  
+Q4 - Do you pronounce "gif", with a J (j-iff) or a G (g-iff)?  
+Q5 - How many months have you lived in New York City?  
+Q6 - How many siblings (brothers/sisters) do you have?  
+Q7 - How many times do you play sport each week?  
+Q8 - How many miles do you travel from home to TC?  
+Q9 - Estimate how many of your friends own Android phones  
+Q10 - How many movies have you seen in the cinema this year?  
+Q11 - How many classes are you taking this semester?  
+Q12 - How many states have you visited in the US?  
+Q13 - What city/town did you grow up in?  
+Q14 - What state/province did you grow up in?  
+Q15 - What country did you grow up in?  
+
+```{r}
+df <- read.csv("Data/HUDK4050_2017_Cluster_Survey.csv")
+```
+
+## 2. Process and structure data for kmeans
+
+```{r}
+df <- select(df, -first, -last, -city.grew, -state.grew)
+df_answers <- select(df, -country.grew, -cat, -gif.jiff) # remove text columns
+#df_answers$cat <- as.integer(df_answers$cat) # convert to integer 
+#df_answers$gif.jiff <- as.integer(df_answers$gif.jiff) # convert to integer
+df_answers[!complete.cases(df_answers),] # no NAs exist
+df_s <- scale(df_answers) # scale data
+head(df_s)
+summary(df_s)
+```
+
+## 3. Run K-means using 2 clusters
+
+```{r}
+fit <- kmeans(df_s, 2, nstart=50, iter.max=15)
+df_cluster <- data.frame(df, fit$cluster)
+head(df_cluster)
+```
+
+## 4. Visualize clusters
+
+## Prepare data
+```{r}
+df_cluster$country.grew <- gsub(" ", "", df_cluster$country.grew)
+df_cluster$country.grew <- gsub("UnitedStates", "United States", df_cluster$country.grew)
+```
+
+## Plot Country Grew Up In and Months in NYC
+```{r}
+ggplot(df_cluster, aes(country.grew, live.nyc, colour=as.factor(fit.cluster))) + geom_point() + xlab("Country Grew Up In") + ylab("Months in NYC")
+```
+
+## Scatterplot Matrix
+```{r}
+# Basic Scatterplot Matrix
+pairs(df_cluster[,3:6], col=df_cluster$fit.cluster)
+pairs(df_cluster[,7:10], col=df_cluster$fit.cluster)
+```
+
+## 5. Analyze
+
+```{r}
+count(df_cluster, fit.cluster)
+```
+
+Observations in cluster 2 have grown up mostly in China, Indoneisa, and Taiwan, while observations in cluster 1 have grown up mostly in the United States.
+
+The scatterplot matrix shows relationships between the different variables grouped by clusters. The extreme differences seem to be the number of states traveled to; the number of classes taken; and the number of siblings. 
+
+### Determine number of clusters using elbow plot
+
+We should consider using the elbow plot to determine optimal number of clusters to use. The elbow plot looks at the total within-clusters sum of squares that results from adding a cluster to the kmeans k, or clustering size.
+
+```{r}
+# Compute and plot wss for k = 2 to k = 15.
+k.max <- 15
+wss <- sapply(1:k.max, 
+              function(k){kmeans(df_s, k, nstart=50,iter.max = 15 )$tot.withinss})
+wss
+plot(1:k.max, wss,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+```
+
+The elbow plot shows optimal number of clusters K is around 6 or 7 for this dataset. However since the n size is low, the recommendation then might be to revisit the scaled variables the kmeans is running on and rerun the elbow plot.
